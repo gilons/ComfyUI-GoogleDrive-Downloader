@@ -1,9 +1,13 @@
 # ComfyUI Google Drive Downloader
 
-A ComfyUI custom node that downloads publicly shared Google Drive files using Playwright, with automatic zip extraction support.
+A ComfyUI web extension that adds a Google Drive download interface directly to the ComfyUI header, allowing users to download publicly shared Google Drive files with automatic zip extraction support.
 
 ## Features
 
+- **Header Icon Integration**: Download icon in ComfyUI header for easy access
+- **Modal Interface**: Clean popup interface for entering download details
+- **Real-time Progress**: Live progress updates during download
+- **Error Handling**: Clear error messages and troubleshooting tips
 - Download files directly from Google Drive URLs
 - Automatic zip extraction for large files
 - Support for all ComfyUI model types (checkpoints, VAE, LoRA, ControlNet, etc.)
@@ -19,6 +23,7 @@ A ComfyUI custom node that downloads publicly shared Google Drive files using Pl
 2. Click "Install Custom Nodes"
 3. Search for "Google Drive Downloader"
 4. Click Install
+5. Restart ComfyUI
 
 ### Manual Installation
 
@@ -28,28 +33,34 @@ git clone https://github.com/YOUR_USERNAME/ComfyUI-GoogleDrive-Downloader.git
 cd ComfyUI-GoogleDrive-Downloader
 pip install -r requirements.txt
 python install.py
+# Restart ComfyUI
 ```
 
 ## Usage
 
-1. Add the "Google Drive Downloader" node to your workflow
-2. Paste a Google Drive share URL (e.g., `https://drive.google.com/file/d/FILE_ID/view`)
-3. Set the filename and model type
-4. Connect and execute
+1. **Look for the download icon** in the ComfyUI header (top toolbar)
+2. **Click the download icon** to open the Google Drive downloader modal
+3. **Enter the Google Drive URL** (e.g., `https://drive.google.com/file/d/FILE_ID/view`)
+4. **Set the filename** and choose the model type destination
+5. **Click "Download"** to start the download process
+6. **Monitor progress** in the modal - you'll see real-time updates
+7. **Check results** - success message or error details will be displayed
 
-### Input Parameters
+### Interface Fields
 
-- **google_drive_url**: The Google Drive share URL or file ID
-- **filename**: Target filename for the downloaded file
-- **model_type**: Destination folder type (checkpoints, vae, loras, etc.)
-- **custom_path**: Custom destination path (when model_type is "custom")
-- **overwrite**: Whether to overwrite existing files
-- **auto_extract_zip**: Automatically extract zip files (useful for large files)
+- **Google Drive URL**: The Google Drive share URL or file ID
+- **Filename**: Target filename for the downloaded file
+- **Model Type**: Dropdown for destination folder (checkpoints, vae, loras, etc.)
+- **Custom Path**: Custom destination path (when model type is "custom")
+- **Overwrite Existing**: Checkbox to overwrite existing files
+- **Auto Extract Zip**: Checkbox to automatically extract zip files
 
-### Output
+### Progress Indicators
 
-- **file_path**: Path to the downloaded/extracted file
-- **success**: Boolean indicating download success
+- **Download Status**: Real-time progress messages
+- **File Size**: Shows downloaded file size
+- **Extraction Status**: Progress for zip file extraction
+- **Success/Error Messages**: Clear feedback on completion
 
 ## Supported URL Formats
 

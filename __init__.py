@@ -1,11 +1,10 @@
-from .google_drive_downloader import GoogleDriveDownloader
+from .google_drive_downloader import GoogleDriveDownloaderAPI
 
-NODE_CLASS_MAPPINGS = {
-    "GoogleDriveDownloader": GoogleDriveDownloader
-}
+# Register the API endpoint
+NODE_CLASS_MAPPINGS = {}
+NODE_DISPLAY_NAME_MAPPINGS = {}
 
-NODE_DISPLAY_NAME_MAPPINGS = {
-    "GoogleDriveDownloader": "Google Drive Downloader"
-}
+# Web extension registration
+WEB_DIRECTORY = "./web"
 
-__all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS']
+__all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS', 'WEB_DIRECTORY']
