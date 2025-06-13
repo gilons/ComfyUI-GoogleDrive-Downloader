@@ -1,0 +1,14 @@
+{
+    "custom_nodes": [
+        {
+            "author": "gilons",
+            "title": "ComfyUI Google Drive Downloader",
+            "reference": "https://github.com/gilons/ComfyUI-GoogleDrive-Downloader",
+            "files": [
+                "https://github.com/gilons/ComfyUI-GoogleDrive-Downloader"
+            ],
+            "install_type": "git-clone",
+            "description": "Download files directly from Google Drive URLs with automatic zip extraction support. Supports all ComfyUI model types and custom paths."
+        }
+    ]
+}

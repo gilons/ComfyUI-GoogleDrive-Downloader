@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "comfyui-google-drive-downloader"
+version = "1.0.0"
+description = "ComfyUI custom node for downloading files from Google Drive"
+authors = [{name = "gilons", email = "gf.694765457@gmail.com"}]
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "playwright>=1.40.0",
+    "aiofiles>=23.0.0"
+]
+
+[project.urls]
+Homepage = "https://github.com/gilons/ComfyUI-GoogleDrive-Downloader"
+Repository = "https://github.com/gilons/ComfyUI-GoogleDrive-Downloader"
+Issues = "https://github.com/gilons/ComfyUI-GoogleDrive-Downloader/issues"
