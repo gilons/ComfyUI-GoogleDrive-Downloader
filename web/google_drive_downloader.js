@@ -163,6 +163,8 @@ class GoogleDriveDownloader {
     constructor() {
         this.modal = null;
         this.isDownloading = false;
+        this.progressInterval = null;
+        this.currentSessionId = null;
     }
 
     createModal() {
@@ -197,7 +199,7 @@ class GoogleDriveDownloader {
                     
                     <div class="gdrive-form-group" id="gdrive-custom-path-group" style="display: none;">
                         <label for="gdrive-custom-path">Custom Path:</label>
-                        <input type="text" id="gdrive-custom-path" name="custom_path" placeholder="/path/to/custom/directory">
+                        <input type="text" id="gdrive-custom-path" name="custom_path" placeholder="eg: models/custom">
                     </div>
                     
                     <div class="gdrive-form-group">
@@ -273,7 +275,61 @@ class GoogleDriveDownloader {
         }, 100);
     }
 
+    generateSessionId() {
+        return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    }
+
+    async pollProgress(sessionId) {
+        if (!this.modal || !this.isDownloading) return;
+        
+        try {
+            const response = await api.fetchApi(`/google_drive_progress/${sessionId}`);
+            const progress = await response.json();
+            
+            if (progress.status === 'progress' || progress.status === 'starting') {
+                this.showProgress(progress.message, progress.percentage || 0);
+            } else if (progress.status === 'completed') {
+                this.showProgress(progress.message, 100);
+                setTimeout(() => {
+                    this.hideProgress();
+                    this.showMessage(`✅ ${progress.message}`, false);
+                    this.stopProgressPolling();
+                    
+                    // Re-enable form but keep modal open
+                    this.isDownloading = false;
+                    this.setFormEnabled(true);
+                }, 500);
+            } else if (progress.status === 'error') {
+                this.hideProgress();
+                this.showMessage(`❌ ${progress.message}`, true);
+                this.stopProgressPolling();
+                
+                // Re-enable form but keep modal open
+                this.isDownloading = false;
+                this.setFormEnabled(true);
+            }
+        } catch (error) {
+            console.error('Error polling progress:', error);
+        }
+    }
+
+    startProgressPolling(sessionId) {
+        this.currentSessionId = sessionId;
+        this.progressInterval = setInterval(() => {
+            this.pollProgress(sessionId);
+        }, 500); // Poll every 500ms
+    }
+
+    stopProgressPolling() {
+        if (this.progressInterval) {
+            clearInterval(this.progressInterval);
+            this.progressInterval = null;
+        }
+        this.currentSessionId = null;
+    }
+
     closeModal() {
+        this.stopProgressPolling();
         if (this.modal) {
             document.body.removeChild(this.modal);
             this.modal = null;
@@ -281,14 +337,16 @@ class GoogleDriveDownloader {
         this.isDownloading = false;
     }
 
-    showProgress(message) {
+    showProgress(message, percentage = 0) {
         if (!this.modal) return;
         
         const progress = this.modal.querySelector('#gdrive-progress');
         const progressText = this.modal.querySelector('.gdrive-progress-text');
+        const progressFill = this.modal.querySelector('.gdrive-progress-fill');
         
         progress.style.display = 'block';
-        progressText.textContent = message;
+        progressText.textContent = `${message} (${Math.round(percentage)}%)`;
+        progressFill.style.width = `${percentage}%`;
     }
 
     hideProgress() {
@@ -326,22 +384,29 @@ class GoogleDriveDownloader {
         
         if (this.isDownloading) return;
         
+        // Clear any previous messages when starting a new download
+        this.showMessage('', false);
+        
+        // Create FormData before disabling form elements
+        const formData = new FormData(e.target);
+        const sessionId = this.generateSessionId();
+        
         this.isDownloading = true;
         this.setFormEnabled(false);
-        this.showMessage('', false); // Clear previous messages
         
-        const formData = new FormData(e.target);
         const data = {
             google_drive_url: formData.get('url'),
             filename: formData.get('filename'),
             model_type: formData.get('model_type'),
             custom_path: formData.get('custom_path') || '',
             overwrite: formData.has('overwrite'),
-            auto_extract_zip: formData.has('auto_extract_zip')
+            auto_extract_zip: formData.has('auto_extract_zip'),
+            session_id: sessionId
         };
 
         try {
-            this.showProgress('Starting download...');
+            this.showProgress('Starting download...', 0);
+            this.startProgressPolling(sessionId);
 
             const response = await api.fetchApi('/google_drive_download', {
                 method: 'POST',
@@ -353,23 +418,26 @@ class GoogleDriveDownloader {
 
             const result = await response.json();
 
+            // Stop polling since we got the final result
+            this.stopProgressPolling();
+
             if (result.success) {
-                this.hideProgress();
-                this.showMessage(`✅ ${result.message}\nFile saved to: ${result.file_path}`, false);
-                
-                // Auto-close after success (optional)
+                this.showProgress('Download completed!', 100);
                 setTimeout(() => {
-                    this.closeModal();
-                }, 3000);
+                    this.hideProgress();
+                    this.showMessage(`✅ ${result.message}\nFile saved to: ${result.file_path}`, false);
+                }, 500);
             } else {
                 this.hideProgress();
                 this.showMessage(`❌ Download failed: ${result.error}`, true);
             }
 
         } catch (error) {
+            this.stopProgressPolling();
             this.hideProgress();
             this.showMessage(`❌ Network error: ${error.message}`, true);
         } finally {
+            // Always re-enable the form and keep modal open
             this.isDownloading = false;
             this.setFormEnabled(true);
         }
@@ -384,14 +452,19 @@ app.registerExtension({
     name: "GoogleDriveDownloader",
     async setup() {
         // Add download button to the top menu bar
-        const menu = document.querySelector('.comfy-menu');
+        const menu = document.querySelector('.comfyui-menu-right');
         if (menu) {
             const downloadBtn = document.createElement('button');
             downloadBtn.innerHTML = `
-                <svg class="gdrive-icon" viewBox="0 0 24 24">
-                    <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
-                    <path d="M12,19L8,15H10.5V12H13.5V15H16L12,19Z"/>
-                </svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="20px" height="20px" viewBox="0 0 32 32" fill="none">
+<path d="M2 11.9556C2 8.47078 2 6.7284 2.67818 5.39739C3.27473 4.22661 4.22661 3.27473 5.39739 2.67818C6.7284 2 8.47078 2 11.9556 2H20.0444C23.5292 2 25.2716 2 26.6026 2.67818C27.7734 3.27473 28.7253 4.22661 29.3218 5.39739C30 6.7284 30 8.47078 30 11.9556V20.0444C30 23.5292 30 25.2716 29.3218 26.6026C28.7253 27.7734 27.7734 28.7253 26.6026 29.3218C25.2716 30 23.5292 30 20.0444 30H11.9556C8.47078 30 6.7284 30 5.39739 29.3218C4.22661 28.7253 3.27473 27.7734 2.67818 26.6026C2 25.2716 2 23.5292 2 20.0444V11.9556Z" fill="white"/>
+<path d="M16.0019 12.4507L12.541 6.34297C12.6559 6.22598 12.7881 6.14924 12.9203 6.09766C11.8998 6.43355 11.4315 7.57961 11.4315 7.57961L5.10895 18.7345C5.01999 19.0843 4.99528 19.4 5.0064 19.6781H11.9072L16.0019 12.4507Z" fill="#34A853"/>
+<path d="M16.002 12.4507L20.0967 19.6781H26.9975C27.0086 19.4 26.9839 19.0843 26.8949 18.7345L20.5724 7.57961C20.5724 7.57961 20.1029 6.43355 19.0835 6.09766C19.2145 6.14924 19.3479 6.22598 19.4628 6.34297L16.002 12.4507Z" fill="#FBBC05"/>
+<path d="M16.0019 12.4514L19.4628 6.34371C19.3479 6.22671 19.2144 6.14997 19.0835 6.09839C18.9327 6.04933 18.7709 6.01662 18.5954 6.00781H18.4125H13.5913H13.4084C13.2342 6.01536 13.0711 6.04807 12.9203 6.09839C12.7894 6.14997 12.6559 6.22671 12.541 6.34371L16.0019 12.4514Z" fill="#188038"/>
+<path d="M11.9082 19.6782L8.48687 25.7168C8.48687 25.7168 8.3732 25.6614 8.21875 25.5469C8.70434 25.9206 9.17633 25.9998 9.17633 25.9998H22.6134C23.3547 25.9998 23.5092 25.7168 23.5092 25.7168C23.5116 25.7155 23.5129 25.7142 23.5153 25.713L20.0965 19.6782H11.9082Z" fill="#4285F4"/>
+<path d="M11.9086 19.6782H5.00781C5.04241 20.4985 5.39826 20.9778 5.39826 20.9778L5.65773 21.4281C5.67627 21.4546 5.68739 21.4697 5.68739 21.4697L6.25205 22.461L7.51976 24.6676C7.55683 24.7569 7.60008 24.8386 7.6458 24.9166C7.66309 24.9431 7.67915 24.972 7.69769 24.9972C7.70263 25.0047 7.70757 25.0123 7.71252 25.0198C7.86944 25.2412 8.04489 25.4123 8.22034 25.5469C8.37479 25.6627 8.48847 25.7168 8.48847 25.7168L11.9086 19.6782Z" fill="#1967D2"/>
+<path d="M20.0967 19.6782H26.9974C26.9628 20.4985 26.607 20.9778 26.607 20.9778L26.3475 21.4281C26.329 21.4546 26.3179 21.4697 26.3179 21.4697L25.7532 22.461L24.4855 24.6676C24.4484 24.7569 24.4052 24.8386 24.3595 24.9166C24.3422 24.9431 24.3261 24.972 24.3076 24.9972C24.3026 25.0047 24.2977 25.0123 24.2927 25.0198C24.1358 25.2412 23.9604 25.4123 23.7849 25.5469C23.6305 25.6627 23.5168 25.7168 23.5168 25.7168L20.0967 19.6782Z" fill="#EA4335"/>
+</svg>
             `;
             downloadBtn.title = 'Download from Google Drive';
             downloadBtn.style.cssText = `
